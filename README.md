@@ -67,7 +67,7 @@ d:\task1\
 │   └── local_environment.postman_environment.json
 ├── sql\                           # Standalone SQL analytics and reporting queries
 │   └── analytics.sql              # Parameterized queries for filtering, counts & agent ranking
-├── tests\                         # Pytest test suite (89 passing tests)
+├── tests\                         # Pytest test suite (98 passing tests)
 │   ├── conftest.py                # PostgreSQL test fixtures and isolated transactions
 │   ├── test_analytics.py          # Analytics endpoints, empty DBs, zero-ticket agents & ranking tests
 │   ├── test_auth.py               # Auth, registration, Argon2, JWT, RBAC & CLI tests
@@ -539,24 +539,76 @@ pytest tests/test_auth.py -v
 platform win32 -- Python 3.12.10, pytest-9.1.1, pluggy-1.7.0 -- D:\task1\.venv\Scripts\python.exe
 rootdir: D:\task1
 plugins: anyio-4.15.1
-collected 89 items
+collected 98 items
 
-tests/test_analytics.py .........                                        [ 10%]
-tests/test_auth.py ....................                                  [ 32%]
-tests/test_comments.py ...........                                       [ 44%]
-tests/test_config.py .....                                               [ 50%]
-tests/test_database.py ...                                               [ 53%]
-tests/test_health.py ...                                                 [ 57%]
-tests/test_integration_workflows.py ......                               [ 64%]
-tests/test_models.py ............                                        [ 77%]
-tests/test_tickets.py ....................                               [100%]
+tests/test_analytics.py .........                                        [  9%]
+tests/test_auth.py .......................                               [ 32%]
+tests/test_comments.py ...........                                       [ 43%]
+tests/test_config.py .........                                           [ 53%]
+tests/test_database.py ....                                              [ 57%]
+tests/test_health.py ...                                                 [ 60%]
+tests/test_integration_workflows.py ......                               [ 66%]
+tests/test_models.py ............                                        [ 78%]
+tests/test_tickets.py .....................                              [100%]
 
-======================== 89 passed, 1 warning in 9.33s ========================
+======================== 98 passed, 1 warning in 8.15s ========================
 ```
 
 ---
 
-## 13. Production Deployment Guide
+## 13. Common Setup Errors & Troubleshooting
+
+Here are solutions to the most common configuration and startup errors, explained in simple terms:
+
+### 1. `ValidationError: SECRET_KEY is missing` or `SECRET_KEY is too short`
+- **Cause**: The application requires a cryptographically strong secret of at least 32 characters for signing JWT access tokens. If `SECRET_KEY` is missing in `.env`, shorter than 32 characters, or left as the placeholder from `.env.example`, the application refuses to start to protect against token forgery.
+- **Solution**: Generate a fresh 32-byte secret and set it in your `.env` file:
+  ```bash
+  python -c "import secrets; print(secrets.token_urlsafe(32))"
+  ```
+  Copy the printed string into `.env`:
+  ```ini
+  SECRET_KEY=your_generated_random_secret_key_here_32_characters_minimum
+  ```
+
+### 2. `ValidationError: SQLite and in-memory databases are strictly forbidden`
+- **Cause**: The system intentionally prohibits SQLite or in-memory databases to ensure real PostgreSQL constraints, enum types, and foreign key cascades are validated.
+- **Solution**: Configure PostgreSQL credentials in `.env` using `POSTGRES_USER`, `POSTGRES_PASSWORD`, `POSTGRES_SERVER`, and `POSTGRES_DB`. Do not use `sqlite://` in `DATABASE_URL`.
+
+### 3. `psycopg2.OperationalError: could not connect to server: Connection refused`
+- **Cause**: The PostgreSQL database server is not running, or is listening on a different port than 5432.
+- **Solution**:
+  - On Windows: Run `Get-Service *postgres*` in PowerShell to verify the service status. Start it if stopped: `Start-Service postgresql*`.
+  - On Linux: Run `sudo systemctl status postgresql`. Start it if stopped: `sudo systemctl start postgresql`.
+  - Check that `POSTGRES_PORT=5432` matches your PostgreSQL configuration (`postgresql.conf`).
+
+### 4. `psycopg2.OperationalError: password authentication failed for user "postgres"`
+- **Cause**: The password specified in `POSTGRES_PASSWORD` in your `.env` file does not match the actual PostgreSQL user password.
+- **Solution**: Double-check your database password. If using a local development setup without password, configure PostgreSQL `pg_hba.conf` or update `POSTGRES_PASSWORD` in `.env`.
+
+### 5. `psycopg2.OperationalError: database "support_ticket_db" does not exist`
+- **Cause**: The target database has not yet been created in PostgreSQL.
+- **Solution**: Connect to PostgreSQL via `psql` and create the databases:
+  ```sql
+  CREATE DATABASE support_ticket_db;
+  CREATE DATABASE support_ticket_test;
+  ```
+
+### 6. `alembic.util.exc.CommandError: Can't locate revision identified by ...`
+- **Cause**: Database has a migration revision registered in `alembic_version` that is not present in `alembic/versions/`.
+- **Solution**: Check current database state with `alembic current`. Ensure your working branch contains `alembic/versions/86d5d08a7600_create_initial_tables.py`.
+
+### 7. Secret Rotation Protocol
+If a secret or token is ever accidentally committed or compromised:
+1. **Never rewrite public git history** merely to hide a leaked credential; assume it was seen.
+2. Immediately generate a new secret: `python -c "import secrets; print(secrets.token_urlsafe(32))"`.
+3. Update `SECRET_KEY` in your live `.env` file and restart the application service.
+4. All existing issued JWT tokens will immediately fail signature validation, safely forcing all active sessions to re-authenticate with their passwords.
+5. If database passwords were compromised, rotate the PostgreSQL password in the database: `ALTER USER postgres WITH PASSWORD 'new_password';` and update `.env`.
+
+---
+
+## 14. Production Deployment Guide
 
 ### Deployment Architecture
 - **Process Manager**: Run Gunicorn with Uvicorn worker classes (`uvicorn.workers.UvicornWorker`).

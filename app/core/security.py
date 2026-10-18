@@ -70,6 +70,8 @@ def create_access_token(
 def decode_access_token(token: str) -> dict[str, Any]:
     """Decode and validate a signed JWT access token.
 
+    Validates signature, expiration, and ensures required claims (exp, sub) are present.
+
     Raises:
         jwt.ExpiredSignatureError: When the token has expired.
         jwt.PyJWTError: When the token is invalid, corrupted, or tampered with.
@@ -78,4 +80,5 @@ def decode_access_token(token: str) -> dict[str, Any]:
         token,
         settings.SECRET_KEY,
         algorithms=[settings.ALGORITHM],
+        options={"require": ["exp", "sub"]},
     )
