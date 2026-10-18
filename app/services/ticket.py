@@ -219,30 +219,34 @@ class TicketService(BaseService[Ticket]):
 
         # Admins can update any ticket
 
-        # Check for status transition and log history
-        old_status = ticket.status
-        if data.status is not None and data.status != old_status:
-            ticket.status = data.status
-            history = TicketHistory(
-                ticket_id=ticket.id,
-                changed_by=current_user.id,
-                old_status=old_status,
-                new_status=data.status,
-            )
-            db.add(history)
+        try:
+            # Check for status transition and log history atomically
+            old_status = ticket.status
+            if data.status is not None and data.status != old_status:
+                ticket.status = data.status
+                history = TicketHistory(
+                    ticket_id=ticket.id,
+                    changed_by=current_user.id,
+                    old_status=old_status,
+                    new_status=data.status,
+                )
+                db.add(history)
 
-        if data.title is not None:
-            ticket.title = data.title.strip()
-        if data.description is not None:
-            ticket.description = data.description.strip()
-        if data.priority is not None:
-            ticket.priority = data.priority
+            if data.title is not None:
+                ticket.title = data.title.strip()
+            if data.description is not None:
+                ticket.description = data.description.strip()
+            if data.priority is not None:
+                ticket.priority = data.priority
 
-        # Update updated_at timestamp
-        ticket.updated_at = datetime.now(timezone.utc)
-        db.commit()
-        db.refresh(ticket)
-        return ticket
+            # Update updated_at timestamp
+            ticket.updated_at = datetime.now(timezone.utc)
+            db.commit()
+            db.refresh(ticket)
+            return ticket
+        except Exception:
+            db.rollback()
+            raise
 
     def assign_ticket(
         self,
