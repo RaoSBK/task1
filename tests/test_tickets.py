@@ -221,6 +221,22 @@ def test_customer_filtering_restrictions_enforced(client: TestClient, db_session
     assert "not authorized to filter by assigned agent" in r2.json()["detail"].lower()
 
 
+def test_agent_filtering_by_customer_id_forbidden(client: TestClient, db_session: Session):
+    """Verify support agent cannot filter tickets by customer_id -> 403 Forbidden."""
+    _, token_agent = create_test_user(
+        db_session,
+        name="Filtering Agent",
+        email="filter_agent@example.com",
+        role=UserRole.AGENT,
+    )
+    res = client.get(
+        "/api/v1/tickets?customer_id=1",
+        headers={"Authorization": f"Bearer {token_agent}"},
+    )
+    assert res.status_code == 403
+    assert "not authorized to filter by customer id" in res.json()["detail"].lower()
+
+
 def test_filtering_by_status_and_priority(client: TestClient, db_session: Session):
     """Verify filtering by status and priority returns matching tickets."""
     cust, _ = create_test_user(db_session, name="Filter Status Cust", email="f_status@example.com")

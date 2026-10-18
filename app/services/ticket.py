@@ -146,8 +146,10 @@ class TicketService(BaseService[Ticket]):
             count_stmt = count_stmt.where(Ticket.assigned_agent_id == current_user.id)
 
             if customer_id is not None:
-                statement = statement.where(Ticket.customer_id == customer_id)
-                count_stmt = count_stmt.where(Ticket.customer_id == customer_id)
+                raise HTTPException(
+                    status_code=status.HTTP_403_FORBIDDEN,
+                    detail="Agents are not authorized to filter by customer ID.",
+                )
 
         elif current_user.role == UserRole.ADMIN:
             # Admins have global visibility with optional filters

@@ -9,8 +9,10 @@ from app.database.base import Base
 # access to the values within the .ini file in use.
 config = context.config
 
-# Dynamically set sqlalchemy.url from our application settings
-config.set_main_option("sqlalchemy.url", settings.sqlalchemy_database_uri)
+# Dynamically set sqlalchemy.url from application settings if not explicitly customized
+existing_url = config.get_main_option("sqlalchemy.url")
+if not existing_url or "driver://user:pass" in existing_url:
+    config.set_main_option("sqlalchemy.url", settings.sqlalchemy_database_uri)
 
 # Interpret the config file for Python logging.
 if config.config_file_name is not None:

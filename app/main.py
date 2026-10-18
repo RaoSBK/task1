@@ -27,8 +27,13 @@ def create_application() -> FastAPI:
     # Global unhandled exception handler to prevent leaking internal stack traces or SQL details
     @app.exception_handler(Exception)
     async def unhandled_exception_handler(request: Request, exc: Exception) -> JSONResponse:
+        error_msg = str(exc)
+        if settings.POSTGRES_PASSWORD and settings.POSTGRES_PASSWORD in error_msg:
+            error_msg = error_msg.replace(settings.POSTGRES_PASSWORD, "********")
+        if settings.SECRET_KEY and settings.SECRET_KEY in error_msg:
+            error_msg = error_msg.replace(settings.SECRET_KEY, "********")
         logger.error(
-            f"Unhandled server error on {request.method} {request.url.path}: {exc}",
+            f"Unhandled server error on {request.method} {request.url.path}: {error_msg}",
             exc_info=True,
         )
         return JSONResponse(

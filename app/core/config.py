@@ -5,6 +5,19 @@ from pydantic import field_validator, model_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
+# Known insecure placeholder secrets that must never be used
+INSECURE_SECRET_KEYS: tuple[str, ...] = (
+    "dev-secret-key-support-ticket-system-evaluation-2026-min-32-bytes",
+    "change-this-to-a-secure-random-secret-key-in-production",
+    "your_secure_password_here",
+    "your_secret_key_here",
+    "secret",
+    "changeme",
+    "secret_key",
+    "secret-key",
+)
+
+
 class Settings(BaseSettings):
     """Application settings loaded from environment variables or .env file."""
 
@@ -35,11 +48,33 @@ class Settings(BaseSettings):
     TEST_DATABASE_URL: Optional[str] = None
 
     # Security & JWT Settings
-    SECRET_KEY: str = "dev-secret-key-support-ticket-system-evaluation-2026-min-32-bytes"
+    SECRET_KEY: Optional[str] = None
     ALGORITHM: str = "HS256"
     ACCESS_TOKEN_EXPIRE_MINUTES: int = 60
     INITIAL_ADMIN_EMAIL: Optional[str] = None
     INITIAL_ADMIN_PASSWORD: Optional[str] = None
+
+    @field_validator("SECRET_KEY", mode="before")
+    @classmethod
+    def validate_secret_key(cls, v: Optional[str]) -> str:
+        """Enforce presence, minimum length, and reject known insecure default JWT secrets."""
+        if v is None or not str(v).strip():
+            raise ValueError(
+                "SECRET_KEY is missing. A secure cryptographic secret key must be set via "
+                "environment configuration (.env) and cannot be empty."
+            )
+        cleaned = str(v).strip()
+        if len(cleaned) < 32:
+            raise ValueError(
+                f"SECRET_KEY is too short ({len(cleaned)} characters). It must be at least 32 "
+                "characters long to guarantee cryptographic security for HS256 JWT tokens."
+            )
+        if cleaned.lower() in [k.lower() for k in INSECURE_SECRET_KEYS]:
+            raise ValueError(
+                "Insecure or default placeholder SECRET_KEY detected. "
+                "You must configure a strong, unique secret key for production and local environments."
+            )
+        return cleaned
 
     @field_validator("DATABASE_URL", "TEST_DATABASE_URL", mode="before")
     @classmethod

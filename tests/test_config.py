@@ -47,11 +47,59 @@ def test_missing_database_configuration_raises_error():
     with pytest.raises(ValidationError) as exc_info:
         Settings(
             _env_file=None,
+            SECRET_KEY="a-sufficiently-long-test-secret-key-1234567890",
             POSTGRES_USER=None,
             POSTGRES_DB=None,
             DATABASE_URL=None,
         )
     assert "Database configuration incomplete" in str(exc_info.value)
+
+
+def test_missing_secret_key_fails_validation():
+    """Verify that omitting SECRET_KEY when no .env is available raises ValidationError."""
+    with pytest.raises(ValidationError) as exc_info:
+        Settings(
+            _env_file=None,
+            SECRET_KEY=None,
+            POSTGRES_USER="testuser",
+            POSTGRES_DB="testdb",
+        )
+    assert "SECRET_KEY is missing" in str(exc_info.value)
+
+
+def test_short_secret_key_fails_validation():
+    """Verify that SECRET_KEY shorter than 32 characters is rejected."""
+    with pytest.raises(ValidationError) as exc_info:
+        Settings(
+            _env_file=None,
+            SECRET_KEY="short-secret-key-less-than-32",
+            POSTGRES_USER="testuser",
+            POSTGRES_DB="testdb",
+        )
+    assert "SECRET_KEY is too short" in str(exc_info.value)
+
+
+def test_insecure_default_secret_key_fails_validation():
+    """Verify that known placeholder default keys are strictly rejected."""
+    with pytest.raises(ValidationError) as exc_info:
+        Settings(
+            _env_file=None,
+            SECRET_KEY="change-this-to-a-secure-random-secret-key-in-production",
+            POSTGRES_USER="testuser",
+            POSTGRES_DB="testdb",
+        )
+    assert "Insecure or default placeholder SECRET_KEY detected" in str(exc_info.value)
+
+
+def test_valid_strong_secret_key_passes_validation():
+    """Verify that a valid, strong SECRET_KEY passes validation."""
+    cfg = Settings(
+        _env_file=None,
+        SECRET_KEY="my-super-secret-unique-production-key-value-at-least-32-chars",
+        POSTGRES_USER="testuser",
+        POSTGRES_DB="testdb",
+    )
+    assert cfg.SECRET_KEY == "my-super-secret-unique-production-key-value-at-least-32-chars"
 
 
 def test_direct_database_url_precedence():

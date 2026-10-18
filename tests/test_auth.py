@@ -246,6 +246,57 @@ def test_get_current_user_expired_token_returns_401(client: TestClient, db_sessi
     assert "expired" in response.json()["detail"].lower()
 
 
+def test_get_current_user_missing_sub_claim_returns_401(client: TestClient):
+    """Verify JWT token missing subject (sub) claim is rejected with 401."""
+    import jwt
+    from app.core.config import settings
+    token_without_sub = jwt.encode(
+        {"exp": 9999999999, "role": "customer"},
+        settings.SECRET_KEY,
+        algorithm=settings.ALGORITHM,
+    )
+    response = client.get(
+        "/api/v1/auth/me",
+        headers={"Authorization": f"Bearer {token_without_sub}"},
+    )
+    assert response.status_code == 401
+    assert "WWW-Authenticate" in response.headers
+
+
+def test_get_current_user_missing_exp_claim_returns_401(client: TestClient):
+    """Verify JWT token missing expiration (exp) claim is rejected with 401."""
+    import jwt
+    from app.core.config import settings
+    token_without_exp = jwt.encode(
+        {"sub": "1", "role": "customer"},
+        settings.SECRET_KEY,
+        algorithm=settings.ALGORITHM,
+    )
+    response = client.get(
+        "/api/v1/auth/me",
+        headers={"Authorization": f"Bearer {token_without_exp}"},
+    )
+    assert response.status_code == 401
+    assert "WWW-Authenticate" in response.headers
+
+
+def test_get_current_user_tampered_signature_returns_401(client: TestClient, db_session: Session):
+    """Verify JWT signed with a different key is rejected with 401."""
+    import jwt
+    from app.core.config import settings
+    forged_token = jwt.encode(
+        {"sub": "1", "exp": 9999999999, "role": "customer"},
+        "wrong-secret-key-that-does-not-match-at-all-32chars",
+        algorithm=settings.ALGORITHM,
+    )
+    response = client.get(
+        "/api/v1/auth/me",
+        headers={"Authorization": f"Bearer {forged_token}"},
+    )
+    assert response.status_code == 401
+    assert "WWW-Authenticate" in response.headers
+
+
 def test_rbac_admin_endpoint_allows_admin(client: TestClient, db_session: Session):
     """Verify admin-only endpoint allows user with admin role."""
     admin = user_service.create_user_with_role(
