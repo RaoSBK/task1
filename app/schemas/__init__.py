@@ -18,8 +18,19 @@ from app.schemas.ticket import (
     TicketRead,
     PaginatedTicketsResponse,
 )
-from app.schemas.comment import CommentBase, CommentCreate, CommentRead
-from app.schemas.ticket_history import TicketHistoryRead
+from app.schemas.comment import (
+    CommentCreate,
+    CommentRead,
+    PaginatedCommentsResponse,
+)
+from app.schemas.ticket_history import (
+    TicketHistoryRead,
+    PaginatedTicketHistoryResponse,
+)
+from app.schemas.analytics import (
+    TicketStatusCountsResponse,
+    AgentUnresolvedTickets,
+)
 
 __all__ = [
     "UserRole",
@@ -38,8 +49,11 @@ __all__ = [
     "TicketAssignRequest",
     "TicketRead",
     "PaginatedTicketsResponse",
-    "CommentBase",
     "CommentCreate",
     "CommentRead",
+    "PaginatedCommentsResponse",
     "TicketHistoryRead",
+    "PaginatedTicketHistoryResponse",
+    "TicketStatusCountsResponse",
+    "AgentUnresolvedTickets",
 ]

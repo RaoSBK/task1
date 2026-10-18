@@ -42,7 +42,16 @@ class CustomerRegisterRequest(BaseModel):
     Note: The 'role' field is strictly excluded. Extra fields (e.g. role escalation
     attempts) are discarded, and the user is always created with role=customer.
     """
-    model_config = ConfigDict(extra="ignore")
+    model_config = ConfigDict(
+        extra="ignore",
+        json_schema_extra={
+            "example": {
+                "name": "Jane Doe",
+                "email": "jane.doe@example.com",
+                "password": "SecurePassword123!",
+            }
+        },
+    )
 
     name: str = Field(..., min_length=1, max_length=255, description="Full name")
     email: EmailStr = Field(..., description="Valid unique email address")
@@ -61,13 +70,33 @@ class CustomerRegisterRequest(BaseModel):
 
 class UserLoginRequest(BaseModel):
     """Login credentials payload."""
+    model_config = ConfigDict(
+        json_schema_extra={
+            "example": {
+                "email": "jane.doe@example.com",
+                "password": "SecurePassword123!",
+            }
+        }
+    )
+
     email: EmailStr = Field(..., description="Registered email address")
     password: str = Field(..., min_length=1, description="Password")
 
 
 class UserRead(BaseModel):
     """Public representation of a user. Never exposes password_hash."""
-    model_config = ConfigDict(from_attributes=True)
+    model_config = ConfigDict(
+        from_attributes=True,
+        json_schema_extra={
+            "example": {
+                "id": 1,
+                "name": "Jane Doe",
+                "email": "jane.doe@example.com",
+                "role": "customer",
+                "created_at": "2026-10-16T10:00:00Z",
+            }
+        },
+    )
 
     id: int
     name: str
@@ -78,6 +107,23 @@ class UserRead(BaseModel):
 
 class TokenResponse(BaseModel):
     """JWT Access Token response."""
+    model_config = ConfigDict(
+        json_schema_extra={
+            "example": {
+                "access_token": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...",
+                "token_type": "bearer",
+                "expires_in": 3600,
+                "user": {
+                    "id": 1,
+                    "name": "Jane Doe",
+                    "email": "jane.doe@example.com",
+                    "role": "customer",
+                    "created_at": "2026-10-16T10:00:00Z",
+                },
+            }
+        }
+    )
+
     access_token: str
     token_type: str = "bearer"
     expires_in: int

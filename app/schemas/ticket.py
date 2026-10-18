@@ -20,7 +20,16 @@ class TicketCreate(BaseModel):
     Note: Customers are strictly forbidden from assigning tickets upon creation.
     customer_id can only be specified by administrators.
     """
-    model_config = ConfigDict(extra="ignore")
+    model_config = ConfigDict(
+        extra="ignore",
+        json_schema_extra={
+            "example": {
+                "title": "Cannot access billing portal",
+                "description": "Receiving a 403 Forbidden error when trying to view invoices.",
+                "priority": "high",
+            }
+        },
+    )
 
     title: str = Field(..., min_length=1, max_length=255, description="Ticket title")
     description: str = Field(..., min_length=1, description="Detailed problem description")
@@ -30,7 +39,16 @@ class TicketCreate(BaseModel):
 
 class TicketUpdate(BaseModel):
     """Payload for updating permitted ticket fields."""
-    model_config = ConfigDict(extra="ignore")
+    model_config = ConfigDict(
+        extra="ignore",
+        json_schema_extra={
+            "example": {
+                "title": "Billing portal access issue (Resolved after cache clear)",
+                "status": "in_progress",
+                "priority": "medium",
+            }
+        },
+    )
 
     title: Optional[str] = Field(None, min_length=1, max_length=255, description="Updated title")
     description: Optional[str] = Field(None, min_length=1, description="Updated description")
@@ -40,7 +58,14 @@ class TicketUpdate(BaseModel):
 
 class TicketAssignRequest(BaseModel):
     """Payload for assigning or unassigning a ticket to a support agent (Admin only)."""
-    model_config = ConfigDict(extra="forbid")
+    model_config = ConfigDict(
+        extra="forbid",
+        json_schema_extra={
+            "example": {
+                "assigned_agent_id": 2,
+            }
+        },
+    )
 
     assigned_agent_id: Optional[int] = Field(
         ...,
@@ -50,7 +75,22 @@ class TicketAssignRequest(BaseModel):
 
 class TicketRead(TicketBase):
     """Public representation of a support ticket."""
-    model_config = ConfigDict(from_attributes=True)
+    model_config = ConfigDict(
+        from_attributes=True,
+        json_schema_extra={
+            "example": {
+                "id": 101,
+                "title": "Cannot access billing portal",
+                "description": "Receiving a 403 Forbidden error when trying to view invoices.",
+                "priority": "high",
+                "status": "open",
+                "customer_id": 1,
+                "assigned_agent_id": 2,
+                "created_at": "2026-10-16T10:00:00Z",
+                "updated_at": "2026-10-16T10:15:00Z",
+            }
+        },
+    )
 
     id: int
     customer_id: int
@@ -64,6 +104,30 @@ class TicketRead(TicketBase):
 
 class PaginatedTicketsResponse(BaseModel):
     """Paginated list of support tickets."""
+    model_config = ConfigDict(
+        json_schema_extra={
+            "example": {
+                "items": [
+                    {
+                        "id": 101,
+                        "title": "Cannot access billing portal",
+                        "description": "Receiving a 403 Forbidden error when trying to view invoices.",
+                        "priority": "high",
+                        "status": "open",
+                        "customer_id": 1,
+                        "assigned_agent_id": 2,
+                        "created_at": "2026-10-16T10:00:00Z",
+                        "updated_at": "2026-10-16T10:15:00Z",
+                    }
+                ],
+                "total": 1,
+                "page": 1,
+                "page_size": 20,
+                "pages": 1,
+            }
+        }
+    )
+
     items: List[TicketRead]
     total: int
     page: int

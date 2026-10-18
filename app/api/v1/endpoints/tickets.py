@@ -15,7 +15,10 @@ from app.schemas.ticket import (
     TicketRead,
     PaginatedTicketsResponse,
 )
+from app.schemas.comment import CommentCreate, CommentRead, PaginatedCommentsResponse
+from app.schemas.ticket_history import PaginatedTicketHistoryResponse
 from app.services.ticket import ticket_service
+from app.services.comment import comment_service
 
 router = APIRouter()
 
@@ -165,4 +168,97 @@ def assign_ticket(
         ticket=ticket,
         current_user=current_user,
         data=request,
+    )
+
+
+@router.post(
+    "/{ticket_id}/comments",
+    response_model=CommentRead,
+    status_code=status.HTTP_201_CREATED,
+    summary="Add Comment to Ticket",
+    description=(
+        "Add a comment to a ticket. author_id is strictly derived from the authenticated user. "
+        "Customers can only comment on their own tickets. "
+        "Agents can only comment on tickets assigned to them. "
+        "Admins can comment on any ticket."
+    ),
+)
+def add_comment(
+    request: CommentCreate,
+    ticket_id: int = Path(..., ge=1, description="ID of the ticket to comment on"),
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+) -> CommentRead:
+    """Add a comment to a support ticket."""
+    return comment_service.create_comment(
+        db,
+        ticket_id=ticket_id,
+        current_user=current_user,
+        data=request,
+    )
+
+
+@router.get(
+    "/{ticket_id}/comments",
+    response_model=PaginatedCommentsResponse,
+    status_code=status.HTTP_200_OK,
+    summary="List Ticket Comments",
+    description=(
+        "Retrieve comments for a ticket in ascending chronological order with pagination. "
+        "Enforces the same ownership rules: customers only access own tickets; "
+        "agents only access assigned tickets; admins access all."
+    ),
+)
+def list_ticket_comments(
+    ticket_id: int = Path(..., ge=1, description="ID of the ticket"),
+    page: int = Query(1, ge=1, description="Page number (1-indexed)"),
+    page_size: int = Query(20, ge=1, le=100, description="Items per page"),
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+) -> PaginatedCommentsResponse:
+    """List comments for a ticket in chronological order."""
+    items, total, pages = comment_service.list_comments(
+        db,
+        ticket_id=ticket_id,
+        current_user=current_user,
+        page=page,
+        page_size=page_size,
+    )
+    return PaginatedCommentsResponse(
+        items=items,
+        total=total,
+        page=page,
+        page_size=page_size,
+        pages=pages,
+    )
+
+
+@router.get(
+    "/{ticket_id}/history",
+    response_model=PaginatedTicketHistoryResponse,
+    status_code=status.HTTP_200_OK,
+    summary="List Ticket Audit History",
+    description="Retrieve status transition history for a ticket in chronological order.",
+)
+def list_ticket_history(
+    ticket_id: int = Path(..., ge=1, description="ID of the ticket"),
+    page: int = Query(1, ge=1, description="Page number (1-indexed)"),
+    page_size: int = Query(20, ge=1, le=100, description="Items per page"),
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+) -> PaginatedTicketHistoryResponse:
+    """List status change audit history for a ticket."""
+    items, total, pages = comment_service.list_ticket_history(
+        db,
+        ticket_id=ticket_id,
+        current_user=current_user,
+        page=page,
+        page_size=page_size,
+    )
+    return PaginatedTicketHistoryResponse(
+        items=items,
+        total=total,
+        page=page,
+        page_size=page_size,
+        pages=pages,
     )
