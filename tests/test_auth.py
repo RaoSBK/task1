@@ -297,6 +297,63 @@ def test_get_current_user_tampered_signature_returns_401(client: TestClient, db_
     assert "WWW-Authenticate" in response.headers
 
 
+def test_get_current_user_nonexistent_user_returns_401(client: TestClient):
+    """Verify valid token referencing a nonexistent user ID returns 401."""
+    # Token with ID 999999 that does not exist in test DB
+    token = create_access_token(subject=999999, extra_claims={"email": "nonexistent@example.com", "role": "customer"})
+    response = client.get(
+        "/api/v1/auth/me",
+        headers={"Authorization": f"Bearer {token}"},
+    )
+    assert response.status_code == 401
+    assert "user not found" in response.json()["detail"].lower()
+    assert "WWW-Authenticate" in response.headers
+
+
+def test_get_current_user_malformed_header_returns_401(client: TestClient):
+    """Verify empty or non-Bearer authorization schemes return 401."""
+    # Empty token after Bearer
+    r1 = client.get("/api/v1/auth/me", headers={"Authorization": "Bearer "})
+    assert r1.status_code == 401
+    assert "WWW-Authenticate" in r1.headers
+
+    # Whitespace only token
+    r2 = client.get("/api/v1/auth/me", headers={"Authorization": "Bearer    "})
+    assert r2.status_code == 401
+    assert "WWW-Authenticate" in r2.headers
+
+    # Non-bearer scheme (e.g. Basic)
+    r3 = client.get("/api/v1/auth/me", headers={"Authorization": "Basic dXNlcjpwYXNz"})
+    assert r3.status_code == 401
+    assert "WWW-Authenticate" in r3.headers
+
+
+def test_openapi_swagger_uses_http_bearer_security_scheme(client: TestClient):
+    """Verify OpenAPI specification configures HTTP Bearer rather than OAuth2 password flow."""
+    response = client.get("/openapi.json")
+    assert response.status_code == 200
+    doc = response.json()
+
+    security_schemes = doc.get("components", {}).get("securitySchemes", {})
+    # Must use HTTPBearer
+    assert "HTTPBearer" in security_schemes
+    scheme_def = security_schemes["HTTPBearer"]
+    assert scheme_def["type"] == "http"
+    assert scheme_def["scheme"] == "bearer"
+    assert scheme_def.get("bearerFormat") == "JWT"
+
+    # Incompatible OAuth2PasswordBearer flow must NOT be active
+    assert "OAuth2PasswordBearer" not in security_schemes
+
+    # Protected routes must declare HTTPBearer security
+    assert doc["paths"]["/api/v1/auth/me"]["get"]["security"] == [{"HTTPBearer": []}]
+    assert doc["paths"]["/api/v1/tickets"]["post"]["security"] == [{"HTTPBearer": []}]
+
+    # Public login & register endpoints must not require security
+    login_op = doc["paths"]["/api/v1/auth/login"]["post"]
+    assert "security" not in login_op or login_op.get("security") is None or login_op.get("security") == []
+
+
 def test_rbac_admin_endpoint_allows_admin(client: TestClient, db_session: Session):
     """Verify admin-only endpoint allows user with admin role."""
     admin = user_service.create_user_with_role(

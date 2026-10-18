@@ -241,8 +241,8 @@ class TicketService(BaseService[Ticket]):
             if data.priority is not None:
                 ticket.priority = data.priority
 
-            # Update updated_at timestamp
-            ticket.updated_at = datetime.now(timezone.utc)
+            # Update updated_at timestamp using database clock
+            ticket.updated_at = func.now()
             db.commit()
             db.refresh(ticket)
             return ticket
@@ -284,7 +284,7 @@ class TicketService(BaseService[Ticket]):
         else:
             ticket.assigned_agent_id = None
 
-        ticket.updated_at = datetime.now(timezone.utc)
+        ticket.updated_at = func.now()
         db.commit()
         db.refresh(ticket)
         return ticket

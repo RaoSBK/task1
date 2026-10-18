@@ -67,12 +67,13 @@ class CommentService(BaseService[Comment]):
                 author_id=current_user.id,  # Strictly derived from authenticated user
                 body=data.body.strip(),
             )
-            # Update ticket updated_at timestamp when a comment is added
-            ticket.updated_at = datetime.now(timezone.utc)
+            # Update ticket updated_at timestamp when a comment is added using database clock
+            ticket.updated_at = func.now()
 
             db.add(comment)
             db.commit()
             db.refresh(comment)
+            db.refresh(ticket)
         except Exception:
             db.rollback()
             raise

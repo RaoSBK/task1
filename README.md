@@ -194,6 +194,14 @@ uvicorn app.main:app --host 0.0.0.0 --port 8000 --reload
 - **ReDoc UI**: [http://localhost:8000/redoc](http://localhost:8000/redoc)
 - **Health Check**: [http://localhost:8000/health](http://localhost:8000/health)
 
+#### Authorizing in Swagger UI (HTTP Bearer)
+1. Open [http://localhost:8000/docs](http://localhost:8000/docs) in your browser.
+2. Under the **Authentication** section, expand `POST /api/v1/auth/login`, click **Try it out**, enter your JSON credentials (e.g. `{"email": "customer@example.com", "password": "SecurePassword123!"}`), and click **Execute**.
+3. Copy the `access_token` from the JSON response.
+4. Click the **Authorize** (lock) button at the top right of Swagger UI.
+5. In the `HTTPBearer` dialog, paste the token into the **Value** field and click **Authorize**, then **Close**.
+6. All subsequent requests to protected endpoints executed from Swagger UI will automatically include the `Authorization: Bearer <token>` header.
+
 ---
 
 ## 7. API Endpoints & Request/Response Examples

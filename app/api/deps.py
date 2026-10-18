@@ -1,8 +1,8 @@
 """Common API dependencies: database sessions, authentication, and role authorization."""
 
-from typing import Generator, Sequence
+from typing import Generator, Sequence, Optional
 from fastapi import Depends, HTTPException, status
-from fastapi.security import OAuth2PasswordBearer
+from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
 import jwt
 from sqlalchemy.orm import Session
 
@@ -12,15 +12,19 @@ from app.database.session import get_db
 from app.models.user import User
 from app.models.enums import UserRole
 
-# OAuth2 Bearer scheme for token extraction
-oauth2_scheme = OAuth2PasswordBearer(
-    tokenUrl=f"{settings.API_V1_STR}/auth/login",
+# HTTP Bearer authentication scheme for OpenAPI and Swagger UI
+http_bearer = HTTPBearer(
+    bearerFormat="JWT",
     auto_error=False,
+    description="Enter your JWT access token (obtained from POST /api/v1/auth/login)",
 )
+
+# Backwards compatibility alias
+oauth2_scheme = http_bearer
 
 
 def get_current_user(
-    token: str = Depends(oauth2_scheme),
+    auth: Optional[HTTPAuthorizationCredentials] = Depends(http_bearer),
     db: Session = Depends(get_db),
 ) -> User:
     """Retrieve and validate the currently authenticated user from the JWT token.
@@ -28,12 +32,14 @@ def get_current_user(
     Raises:
         HTTPException(401): If token is missing, expired, invalid, or user does not exist.
     """
-    if not token:
+    if not auth or not auth.credentials or not auth.credentials.strip():
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Not authenticated",
             headers={"WWW-Authenticate": "Bearer"},
         )
+
+    token = auth.credentials.strip()
 
     try:
         payload = decode_access_token(token)
@@ -93,6 +99,7 @@ require_authenticated = get_current_user
 
 __all__ = [
     "get_db",
+    "http_bearer",
     "oauth2_scheme",
     "get_current_user",
     "RoleChecker",
